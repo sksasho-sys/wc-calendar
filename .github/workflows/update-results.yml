@@ -2,10 +2,8 @@ name: Daily World Cup results update
 
 on:
   schedule:
-    # 05:00 UTC = 08:00 Sofia time (EEST, UTC+3) during the World Cup window (June-July).
-    # GitHub Actions cron always runs in UTC, so this stays fixed at 05:00 UTC.
     - cron: '0 5 * * *'
-  workflow_dispatch: {} # lets you trigger it manually from the Actions tab too
+  workflow_dispatch: {}
 
 permissions:
   contents: write
@@ -47,8 +45,7 @@ jobs:
 
       - name: Replace index.html with rebuilt bundle
         if: steps.diff.outputs.changed == 'true'
-        run: |
-          cp bundle.html index.html
+        run: cp bundle.html index.html
 
       - name: Commit and push
         if: steps.diff.outputs.changed == 'true'
@@ -56,5 +53,5 @@ jobs:
           git config user.name "wc2026-bot"
           git config user.email "actions@users.noreply.github.com"
           git add src/data.ts index.html
-          git commit -m "Auto-update World Cup results $(date -u +'%Y-%m-%d %H:%M UTC')"
+          git commit -m "Auto-update World Cup results"
           git push
