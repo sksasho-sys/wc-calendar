@@ -1,1 +1,60 @@
+name: Daily World Cup results update
 
+on:
+  schedule:
+    # 05:00 UTC = 08:00 Sofia time (EEST, UTC+3) during the World Cup window (June-July).
+    # GitHub Actions cron always runs in UTC, so this stays fixed at 05:00 UTC.
+    - cron: '0 5 * * *'
+  workflow_dispatch: {} # lets you trigger it manually from the Actions tab too
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install --no-save
+
+      - name: Fetch latest results and patch data.ts
+        env:
+          FOOTBALL_DATA_API_KEY: ${{ secrets.FOOTBALL_DATA_API_KEY }}
+        run: node scripts/update-results.mjs
+
+      - name: Check for changes
+        id: diff
+        run: |
+          if git diff --quiet -- src/data.ts; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build static site
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          npx vite build
+          npx html-inline dist/index.html -o bundle.html
+
+      - name: Replace index.html with rebuilt bundle
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          cp bundle.html index.html
+
+      - name: Commit and push
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          git config user.name "wc2026-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/data.ts index.html
+          git commit -m "Auto-update World Cup results $(date -u +'%Y-%m-%d %H:%M UTC')"
+          git push
