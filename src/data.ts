@@ -28,7 +28,7 @@ function etToUtc(date: string, etTime: string): string {
 
 export const MATCHES: Match[] = [
   // Group stage
-  { stage: 'Group stage', group: 'A', date: '2026-06-11', utc: '2026-06-11T19:00', home: 'Mexico', away: 'South Africa', diff: 5, result: null, venue: 'Estadio Azteca, Mexico City', fav: 'Mexico', favPct: 77 },
+  { stage: 'Group stage', group: 'A', date: '2026-06-11', utc: '2026-06-11T19:00', home: 'Mexico', away: 'South Africa', diff: 5, result: '2–0', venue: 'Estadio Azteca, Mexico City', fav: 'Mexico', favPct: 77 },
   { stage: 'Group stage', group: 'A', date: '2026-06-11', utc: '2026-06-11T22:00', home: 'South Korea', away: 'Czechia', diff: 2, result: '2–1', venue: 'Estadio Akron, Zapopan', fav: 'South Korea', favPct: 54 },
   { stage: 'Group stage', group: 'B', date: '2026-06-12', utc: etToUtc('2026-06-12', '21:00 ET'), home: 'Canada', away: 'Bosnia & Herz.', diff: 2, result: '1–1', venue: 'Toronto Stadium', fav: 'Canada', favPct: 55 },
   { stage: 'Group stage', group: 'D', date: '2026-06-12', utc: etToUtc('2026-06-12', '22:00 ET'), home: 'USA', away: 'Paraguay', diff: 4, result: '4–1', venue: 'LA Stadium, Inglewood', fav: 'USA', favPct: 68 },
