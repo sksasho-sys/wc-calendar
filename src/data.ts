@@ -102,9 +102,9 @@ export const MATCHES: Match[] = [
   { stage: 'Group stage', group: 'J', date: '2026-06-27', utc: etToUtc('2026-06-27', '22:00 ET'), home: 'Jordan', away: 'Argentina', diff: 5, result: '1–3', venue: 'AT&T Stadium, Arlington', fav: 'Argentina', favPct: 83 },
   // Round of 32
   { stage: 'Round of 32', group: '-', date: '2026-06-28', utc: etToUtc('2026-06-28', '15:00 ET'), home: 'South Africa', away: 'Canada', diff: 3, result: '0–1', venue: 'SoFi Stadium, Inglewood', fav: 'Canada', favPct: 55 },
-  { stage: 'Round of 32', group: '-', date: '2026-06-29', utc: etToUtc('2026-06-29', '13:00 ET'), home: 'Brazil', away: 'Japan', diff: 4, result: null, venue: 'NRG Stadium, Houston', fav: 'Brazil', favPct: 70 },
-  { stage: 'Round of 32', group: '-', date: '2026-06-29', utc: etToUtc('2026-06-29', '16:30 ET'), home: 'Germany', away: 'Paraguay', diff: 4, result: null, venue: 'Gillette Stadium, Foxborough', fav: 'Germany', favPct: 70 },
-  { stage: 'Round of 32', group: '-', date: '2026-06-29', utc: etToUtc('2026-06-29', '21:00 ET'), home: 'Netherlands', away: 'Morocco', diff: 3, result: null, venue: 'Estadio BBVA, Monterrey', fav: 'Netherlands', favPct: 58 },
+  { stage: 'Round of 32', group: '-', date: '2026-06-29', utc: etToUtc('2026-06-29', '13:00 ET'), home: 'Brazil', away: 'Japan', diff: 4, result: '2–1', venue: 'NRG Stadium, Houston', fav: 'Brazil', favPct: 70 },
+  { stage: 'Round of 32', group: '-', date: '2026-06-29', utc: etToUtc('2026-06-29', '16:30 ET'), home: 'Germany', away: 'Paraguay', diff: 4, result: '4–5', venue: 'Gillette Stadium, Foxborough', fav: 'Germany', favPct: 70 },
+  { stage: 'Round of 32', group: '-', date: '2026-06-29', utc: etToUtc('2026-06-29', '21:00 ET'), home: 'Netherlands', away: 'Morocco', diff: 3, result: '3–4', venue: 'Estadio BBVA, Monterrey', fav: 'Netherlands', favPct: 58 },
   { stage: 'Round of 32', group: '-', date: '2026-06-30', utc: etToUtc('2026-06-30', '13:00 ET'), home: 'Ivory Coast', away: 'Norway', diff: 2, result: null, venue: 'AT&T Stadium, Arlington', fav: 'Norway', favPct: 55 },
   { stage: 'Round of 32', group: '-', date: '2026-06-30', utc: etToUtc('2026-06-30', '17:00 ET'), home: 'France', away: 'Sweden', diff: 4, result: null, venue: 'MetLife Stadium, NJ', fav: 'France', favPct: 70 },
   { stage: 'Round of 32', group: '-', date: '2026-06-30', utc: etToUtc('2026-06-30', '21:00 ET'), home: 'Mexico', away: 'Ecuador', diff: 4, result: null, venue: 'Estadio Azteca, Mexico City', fav: 'Mexico', favPct: 65 },
