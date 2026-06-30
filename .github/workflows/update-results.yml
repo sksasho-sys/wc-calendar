@@ -39,9 +39,20 @@ jobs:
 
       - name: Build static site
         if: steps.diff.outputs.changed == 'true'
+        run: npx vite build
+
+      - name: Inline JS/CSS into a single self-contained HTML file
+        if: steps.diff.outputs.changed == 'true'
         run: |
-          npx vite build
           npx html-inline dist/index.html -o bundle.html
+          echo "--- bundle.html size ---"
+          wc -c bundle.html
+          echo "--- sanity check: bundle.html must NOT reference external script src ---"
+          if grep -q '<script[^>]*src=' bundle.html; then
+            echo "ERROR: bundle.html still references an external script — inlining failed."
+            exit 1
+          fi
+          echo "OK: bundle.html is fully self-contained."
 
       - name: Replace index.html with rebuilt bundle
         if: steps.diff.outputs.changed == 'true'
