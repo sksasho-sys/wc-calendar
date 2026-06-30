@@ -53,7 +53,7 @@ jobs:
 
       - name: Build static site
         if: steps.diff.outputs.changed == 'true'
-        run: npx vite build --force
+        run: npx vite build
 
       - name: Show dist bundle content (debug)
         if: steps.diff.outputs.changed == 'true'
