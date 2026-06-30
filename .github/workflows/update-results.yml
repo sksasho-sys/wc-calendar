@@ -20,10 +20,7 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install dependencies
-        run: npm install --no-save
-
-      - name: Fetch latest results and patch data.ts
+      - name: Fetch latest results and patch index.html directly
         env:
           FOOTBALL_DATA_API_KEY: ${{ secrets.FOOTBALL_DATA_API_KEY }}
         run: node scripts/update-results.mjs
@@ -31,50 +28,17 @@ jobs:
       - name: Check for changes
         id: diff
         run: |
-          if git diff --quiet -- src/data.ts; then
+          if git diff --quiet -- index.html; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
-
-      - name: Clear ALL bundler caches (Vite AND Parcel)
-        if: steps.diff.outputs.changed == 'true'
-        run: |
-          rm -rf node_modules/.vite
-          rm -rf node_modules/.cache
-          rm -rf .parcel-cache
-          rm -rf node_modules/.parcel-cache
-          find / -maxdepth 4 -type d -name ".parcel-cache" 2>/dev/null | xargs -r rm -rf
-          rm -rf dist
-          rm -f bundle.html
-          find . -maxdepth 1 -name "*.tsbuildinfo" -delete
-
-      - name: Build static site
-        if: steps.diff.outputs.changed == 'true'
-        run: node_modules/.bin/vite build
-
-      - name: Inline JS/CSS into a single self-contained HTML file
-        if: steps.diff.outputs.changed == 'true'
-        run: |
-          npx html-inline dist/index.html -o bundle.html
-          echo "--- bundle.html size ---"
-          wc -c bundle.html
-          if grep -q '<script[^>]*src=' bundle.html; then
-            echo "ERROR: bundle.html still references an external script — inlining failed."
-            exit 1
-          fi
-          echo "--- grep bundle.html for Brazil/Japan result (final check) ---"
-          grep -o "Brazil[^}]*Japan[^}]*}" bundle.html || true
-
-      - name: Replace index.html with rebuilt bundle
-        if: steps.diff.outputs.changed == 'true'
-        run: cp bundle.html index.html
 
       - name: Commit and push
         if: steps.diff.outputs.changed == 'true'
         run: |
           git config user.name "wc2026-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add src/data.ts index.html
+          git add index.html
           git commit -m "Auto-update World Cup results"
           git push
