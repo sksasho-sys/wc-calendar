@@ -28,13 +28,6 @@ jobs:
           FOOTBALL_DATA_API_KEY: ${{ secrets.FOOTBALL_DATA_API_KEY }}
         run: node scripts/update-results.mjs
 
-      - name: Show data.ts content right after patch (debug)
-        run: |
-          echo "--- grep for Brazil/Japan, Germany/Paraguay, Netherlands/Morocco right after patch ---"
-          grep -n "Brazil', away: 'Japan'" src/data.ts || true
-          grep -n "Germany', away: 'Paraguay'" src/data.ts || true
-          grep -n "Netherlands', away: 'Morocco'" src/data.ts || true
-
       - name: Check for changes
         id: diff
         run: |
@@ -48,18 +41,36 @@ jobs:
         if: steps.diff.outputs.changed == 'true'
         run: |
           rm -rf node_modules/.vite
+          rm -rf node_modules/.cache
           rm -rf dist
           rm -f bundle.html
+          rm -f tsconfig.tsbuildinfo
+          find . -maxdepth 1 -name "*.tsbuildinfo" -delete
 
-      - name: Build static site
+      - name: DEBUG - verify data.ts and which vite binary will run
         if: steps.diff.outputs.changed == 'true'
-        run: npx vite build
+        run: |
+          echo "--- realpath of vite binary that 'npx vite' will use ---"
+          which npx
+          npx --no-install which vite || echo "vite not found via npx --no-install"
+          ls -la node_modules/.bin/vite || true
+          echo "--- content of src/data.ts for our 3 matches, read FRESH right now ---"
+          grep -n "Brazil', away: 'Japan'" src/data.ts
+          echo "--- md5 of src/data.ts right now ---"
+          md5sum src/data.ts
+
+      - name: Build static site (using local node_modules/.bin/vite explicitly)
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          node_modules/.bin/vite build
 
       - name: Show dist bundle content (debug)
         if: steps.diff.outputs.changed == 'true'
         run: |
           echo "--- grep built JS for Brazil/Japan result ---"
           grep -o "Brazil[^}]*Japan[^}]*}" dist/assets/*.js || true
+          echo "--- md5 of src/data.ts AFTER build (should be unchanged from before) ---"
+          md5sum src/data.ts
 
       - name: Inline JS/CSS into a single self-contained HTML file
         if: steps.diff.outputs.changed == 'true'
