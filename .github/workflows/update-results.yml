@@ -2,7 +2,11 @@ name: Daily World Cup results update
 
 on:
   schedule:
-    - cron: '0 5 * * *'
+    # Runs at minute 17 of every hour (offset off :00 to dodge GitHub's
+    # busiest cron slot). Temporary hourly schedule to verify the cron
+    # fires at all — switch back to a single daily run once confirmed,
+    # e.g.  - cron: '17 5 * * *'  (05:17 UTC = 08:17 Sofia time).
+    - cron: '17 * * * *'
   workflow_dispatch: {}
 
 permissions:
