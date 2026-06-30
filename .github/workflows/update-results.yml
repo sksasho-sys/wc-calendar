@@ -28,6 +28,13 @@ jobs:
           FOOTBALL_DATA_API_KEY: ${{ secrets.FOOTBALL_DATA_API_KEY }}
         run: node scripts/update-results.mjs
 
+      - name: Show data.ts content right after patch (debug)
+        run: |
+          echo "--- grep for Brazil/Japan, Germany/Paraguay, Netherlands/Morocco right after patch ---"
+          grep -n "Brazil', away: 'Japan'" src/data.ts || true
+          grep -n "Germany', away: 'Paraguay'" src/data.ts || true
+          grep -n "Netherlands', away: 'Morocco'" src/data.ts || true
+
       - name: Check for changes
         id: diff
         run: |
@@ -37,9 +44,22 @@ jobs:
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Clear any Vite cache and old build output
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          rm -rf node_modules/.vite
+          rm -rf dist
+          rm -f bundle.html
+
       - name: Build static site
         if: steps.diff.outputs.changed == 'true'
-        run: npx vite build
+        run: npx vite build --force
+
+      - name: Show dist bundle content (debug)
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          echo "--- grep built JS for Brazil/Japan result ---"
+          grep -o "Brazil[^}]*Japan[^}]*}" dist/assets/*.js || true
 
       - name: Inline JS/CSS into a single self-contained HTML file
         if: steps.diff.outputs.changed == 'true'
@@ -47,12 +67,12 @@ jobs:
           npx html-inline dist/index.html -o bundle.html
           echo "--- bundle.html size ---"
           wc -c bundle.html
-          echo "--- sanity check: bundle.html must NOT reference external script src ---"
           if grep -q '<script[^>]*src=' bundle.html; then
             echo "ERROR: bundle.html still references an external script — inlining failed."
             exit 1
           fi
-          echo "OK: bundle.html is fully self-contained."
+          echo "--- grep bundle.html for Brazil/Japan result (final check) ---"
+          grep -o "Brazil[^}]*Japan[^}]*}" bundle.html || true
 
       - name: Replace index.html with rebuilt bundle
         if: steps.diff.outputs.changed == 'true'
