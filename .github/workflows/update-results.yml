@@ -37,19 +37,25 @@ jobs:
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Build in a fresh, isolated copy of the repo
+      - name: Clear ALL bundler caches (Vite AND Parcel)
         if: steps.diff.outputs.changed == 'true'
         run: |
-          # Copy the entire working tree (with the freshly patched data.ts) into a
-          # brand-new directory. This sidesteps any stale in-memory or on-disk
-          # caching Vite/Node may be holding onto from this runner process,
-          # since the build now happens against files it has never seen before.
-          rm -rf /tmp/freshbuild
-          mkdir -p /tmp/freshbuild
-          cp -r . /tmp/freshbuild
-          cd /tmp/freshbuild
-          rm -rf node_modules/.vite node_modules/.cache dist bundle.html
-          node_modules/.bin/vite build
+          rm -rf node_modules/.vite
+          rm -rf node_modules/.cache
+          rm -rf .parcel-cache
+          rm -rf node_modules/.parcel-cache
+          find / -maxdepth 4 -type d -name ".parcel-cache" 2>/dev/null | xargs -r rm -rf
+          rm -rf dist
+          rm -f bundle.html
+          find . -maxdepth 1 -name "*.tsbuildinfo" -delete
+
+      - name: Build static site
+        if: steps.diff.outputs.changed == 'true'
+        run: node_modules/.bin/vite build
+
+      - name: Inline JS/CSS into a single self-contained HTML file
+        if: steps.diff.outputs.changed == 'true'
+        run: |
           npx html-inline dist/index.html -o bundle.html
           echo "--- bundle.html size ---"
           wc -c bundle.html
@@ -59,8 +65,6 @@ jobs:
           fi
           echo "--- grep bundle.html for Brazil/Japan result (final check) ---"
           grep -o "Brazil[^}]*Japan[^}]*}" bundle.html || true
-          # Copy the final bundle back to the original working directory
-          cp bundle.html "$GITHUB_WORKSPACE/bundle.html"
 
       - name: Replace index.html with rebuilt bundle
         if: steps.diff.outputs.changed == 'true'
