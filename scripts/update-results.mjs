@@ -1,16 +1,18 @@
 #!/usr/bin/env node
 /**
- * update-results.mjs  (v4 — robust team-name matching + AET/pens)
+ * update-results.mjs  (v5 — API-Football source)
  * ---------------------------------------------------------------
- * Patches the single self-contained index.html directly.
- * Handles regular / extra-time / penalty results, and matches
- * teams even when the API spells them differently (e.g.
- * "Bosnia-Herzegovina" vs "Bosnia & Herz.", "Turkey" vs "Türkiye").
+ * Patches the single self-contained index.html directly with match
+ * results fetched from API-Football (api-sports.io direct).
  *
- * Run:  FOOTBALL_DATA_API_KEY=xxx node scripts/update-results.mjs
+ * Handles regular / extra-time / penalty results. Matches teams to
+ * the HTML by name, with a canonical fallback for spelling variants
+ * (e.g. "Bosnia & Herzegovina" -> "Bosnia & Herz.").
+ *
+ * Env: API_FOOTBALL_KEY
+ * Run: API_FOOTBALL_KEY=xxx node scripts/update-results.mjs
  * ---------------------------------------------------------------
  */
-
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -18,146 +20,103 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const HTML_FILE = path.join(__dirname, '..', 'index.html');
 
-const API_KEY = process.env.FOOTBALL_DATA_API_KEY;
-if (!API_KEY) {
-  console.error('Missing FOOTBALL_DATA_API_KEY environment variable.');
-  process.exit(1);
-}
+const KEY = process.env.API_FOOTBALL_KEY;
+if (!KEY) { console.error('Missing API_FOOTBALL_KEY environment variable.'); process.exit(1); }
 
-const API_URL = 'https://api.football-data.org/v4/competitions/WC/matches';
+const BASE = 'https://v3.football.api-sports.io';
+const LEAGUE = 1;
+const SEASON = 2026;
+const DASH = '\u2013';
 
-// Explicit overrides for names that can't be auto-derived by canonicalisation
-// (e.g. "Korea Republic" -> "South Korea", which share no common root).
-const TEAM_NAME_MAP = {
-  'Korea Republic': 'South Korea',
-  "Côte d'Ivoire": 'Ivory Coast',
-  'IR Iran': 'Iran',
+// Explicit overrides where canonicalisation can't bridge the gap.
+const NAME_OVERRIDES = {
   'United States': 'USA',
-  'Cabo Verde': 'Cape Verde',
-  'Congo DR': 'DR Congo',
-  'Turkey': 'Türkiye',
+  'Korea Republic': 'South Korea',
+  'Czech Republic': 'Czechia',
 };
 
-const DASH = '\u2013'; // en dash
-
-// Canonical form: lowercase, drop connector words & punctuation & accents,
-// so "Bosnia-Herzegovina", "Bosnia and Herzegovina", "Bosnia & Herz." all
-// reduce to a comparable root ("bosniaherz..."). Used as a fallback matcher.
 function canonical(name) {
-  return name
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // strip accents
-    .toLowerCase()
-    .replace(/\band\b/g, ' ')
-    .replace(/[&\-.]/g, ' ')
-    .replace(/[^a-z ]/g, '')
-    .replace(/\s+/g, '');
+  return name.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase().replace(/\band\b/g, ' ').replace(/[&\-.'']/g, ' ')
+    .replace(/[^a-z ]/g, '').replace(/\s+/g, '');
 }
 
-function normalizeTeamName(name) {
-  return TEAM_NAME_MAP[name] || name;
-}
-
-async function fetchMatches() {
-  const res = await fetch(API_URL, { headers: { 'X-Auth-Token': API_KEY } });
-  if (!res.ok) {
-    throw new Error(`football-data.org API error: ${res.status} ${res.statusText}`);
-  }
-  const json = await res.json();
-  return json.matches || [];
-}
-
-function formatResult(match) {
-  if (match.status !== 'FINISHED') return null;
-  const score = match.score || {};
-  const ft = score.fullTime || {};
-  const h = ft.home, a = ft.away;
-  if (h == null || a == null) return null;
-
-  const duration = score.duration || 'REGULAR';
-  if (duration === 'EXTRA_TIME') return `${h}${DASH}${a} (AET)`;
-  if (duration === 'PENALTY_SHOOTOUT') {
-    const p = score.penalties || {};
-    if (p.home != null && p.away != null) return `${h}${DASH}${a} (${p.home}${DASH}${p.away} pens)`;
-    return `${h}${DASH}${a}`;
-  }
-  return `${h}${DASH}${a}`;
-}
-
-function escapeRegex(s) {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-// Extract every home/away pair present in the HTML, once, so we can do a
-// canonical-fallback lookup when the direct name doesn't match.
 function extractHtmlTeams(html) {
   const names = new Set();
   const re = /home:`([^`]*)`,away:`([^`]*)`/g;
   let m;
   while ((m = re.exec(html)) !== null) {
-    names.add(m[1]);
-    names.add(m[2]);
-  }
-  // Map canonical -> actual HTML spelling
-  const byCanonical = new Map();
-  for (const n of names) byCanonical.set(canonical(n), n);
-  return byCanonical;
-}
-
-// Resolve an API team name to the exact spelling used in the HTML.
-// Tries, in order: exact canonical match, then prefix match (to handle
-// abbreviations like "Herz." for "Herzegovina").
-function resolveToHtmlName(apiName, htmlByCanonical) {
-  const candidates = [canonical(normalizeTeamName(apiName)), canonical(apiName)];
-
-  // 1) Exact canonical match
-  for (const c of candidates) {
-    if (htmlByCanonical.has(c)) return htmlByCanonical.get(c);
-  }
-
-  // 2) Prefix match — one canonical form is a prefix of the other.
-  //    Require the shorter string to be >= 4 chars to avoid accidental
-  //    collisions between short unrelated names.
-  for (const c of candidates) {
-    for (const [htmlC, htmlName] of htmlByCanonical) {
-      const shorter = c.length < htmlC.length ? c : htmlC;
-      const longer = c.length < htmlC.length ? htmlC : c;
-      if (shorter.length >= 4 && longer.startsWith(shorter)) {
-        return htmlName;
-      }
+    for (const n of [m[1], m[2]]) {
+      if (n && !/^(TBD|Best 3rd|Winner |Runner-up )/.test(n)) names.add(n);
     }
   }
-
-  return normalizeTeamName(apiName); // last resort — may not match, will be skipped
+  const byC = new Map();
+  for (const n of names) byC.set(canonical(n), n);
+  return byC;
 }
 
+function toHtmlName(apiName, htmlByCanonical) {
+  if (NAME_OVERRIDES[apiName]) return NAME_OVERRIDES[apiName];
+  const c = canonical(apiName);
+  if (htmlByCanonical.has(c)) return htmlByCanonical.get(c);
+  for (const [hc, hn] of htmlByCanonical) {
+    const short = c.length < hc.length ? c : hc;
+    const long = c.length < hc.length ? hc : c;
+    if (short.length >= 4 && long.startsWith(short)) return hn;
+  }
+  return apiName;
+}
+
+function formatResult(fx) {
+  const st = fx.fixture.status.short;
+  if (!['FT', 'AET', 'PEN'].includes(st)) return null;
+  const g = fx.goals;
+  if (g.home == null || g.away == null) return null;
+  const score = fx.score;
+
+  if (st === 'PEN') {
+    const ft = score.fulltime || {};
+    const pen = score.penalty || {};
+    const base = (ft.home != null && ft.away != null)
+      ? `${ft.home}${DASH}${ft.away}` : `${g.home}${DASH}${g.away}`;
+    if (pen.home != null && pen.away != null) return `${base} (${pen.home}${DASH}${pen.away} pens)`;
+    return base;
+  }
+  if (st === 'AET') return `${g.home}${DASH}${g.away} (AET)`;
+  return `${g.home}${DASH}${g.away}`;
+}
+
+function escapeRegex(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
 async function main() {
-  console.log('Fetching FIFA World Cup 2026 matches from football-data.org...');
-  const apiMatches = await fetchMatches();
-  console.log(`Fetched ${apiMatches.length} matches.`);
+  console.log('Fetching World Cup fixtures from API-Football...');
+  const res = await fetch(`${BASE}/fixtures?league=${LEAGUE}&season=${SEASON}`, {
+    headers: { 'x-apisports-key': KEY },
+  });
+  if (!res.ok) throw new Error(`API-Football error: ${res.status} ${res.statusText}`);
+  const json = await res.json();
+  const fixtures = json.response || [];
+  console.log(`Fetched ${fixtures.length} fixtures.`);
 
   let html = fs.readFileSync(HTML_FILE, 'utf8');
   const htmlByCanonical = extractHtmlTeams(html);
   let updatedCount = 0;
 
-  for (const m of apiMatches) {
-    const rawHome = m.homeTeam?.name || '';
-    const rawAway = m.awayTeam?.name || '';
-    if (!rawHome || !rawAway) continue;
+  for (const fx of fixtures) {
+    const newResult = formatResult(fx);
+    if (!newResult) continue; // not finished
 
-    const newResult = formatResult(m);
-    if (!newResult) continue; // not finished yet
-
-    const home = resolveToHtmlName(rawHome, htmlByCanonical);
-    const away = resolveToHtmlName(rawAway, htmlByCanonical);
+    const home = toHtmlName(fx.teams.home.name, htmlByCanonical);
+    const away = toHtmlName(fx.teams.away.name, htmlByCanonical);
 
     const pattern = new RegExp(
       '(home:`' + escapeRegex(home) + '`,away:`' + escapeRegex(away) + '`,diff:\\d+,result:)(null|`[^`]*`)'
     );
     const found = html.match(pattern);
-    if (!found) continue; // fixture not present (e.g. unresolved knockout placeholder)
+    if (!found) continue;
 
     const currentResult = found[2] === 'null' ? null : found[2].slice(1, -1);
-    if (currentResult === newResult) continue; // already correct
+    if (currentResult === newResult) continue;
 
     html = html.replace(pattern, '$1`' + newResult + '`');
     updatedCount++;
@@ -169,4 +128,4 @@ async function main() {
   process.exit(0);
 }
 
-main().catch((err) => { console.error(err); process.exit(1); });
+main().catch(e => { console.error(e); process.exit(1); });
